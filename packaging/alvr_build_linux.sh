@@ -10,6 +10,9 @@
 # 7 - Unable to install / upgrade rustup
 # 99 - Script run as root
 #
+# Disable warnings about importing snapd
+# shellcheck disable=SC1091
+
 # GitHub repo
 repo='alvr-org/ALVR'
 # Git branch
@@ -22,7 +25,7 @@ controlFile='packaging/deb/control'
 rawContentProvider='https://raw.githubusercontent.com'
 
 # Grab the directory git creates
-repoDir="$(dirname $(realpath ${0}))/$(basename ${repo})"
+repoDir="$(dirname "$(realpath "${0}")")/$(basename "${repo}")"
 # Set a temporary working directory
 tmpDir="/tmp/alvr_$(date '+%Y%m%d-%H%M%S')"
 buildDir="${repoDir}/build/alvr_server_linux/"
@@ -40,24 +43,24 @@ fi
 log() {
     prefix=$(date +'%F %H:%M:%S');
     case "${1,,}" in
-        'debug') printf "\E[35m${prefix} - Debug: \n${2}\e[0m\n" ;;
-        'info') printf "\E[36m${prefix} - Info: ${2}\e[0m\n" ;;
-        'warning') printf "\E[33m${prefix} - Warning: ${2}\e[0m\n" ;;
+        'debug') printf "\E[35m%s - Debug: \n%s\e[0m\n" "${prefix}" "${2}" ;;
+        'info') printf "\E[36m%s - Info: %s\e[0m\n" "${prefix}" "${2}" ;;
+        'warning') printf "\E[33m%s - Warning: %s\e[0m\n" "${prefix}" "${2}" ;;
         'error')
-            printf "\E[31m${prefix} - Error: ${2}\e[0m"
+            printf "\E[31m%s - Error: %s\e[0m" "${prefix}" "${2}"
             if [ "${3^^}" != 'NOKILL' ]; then
                 printf "\nWould you like to continue (Y/[N])? "
-                read keepGoing
+                read -r keepGoing
                 if [ "${keepGoing^^}" != 'Y' ]; then
                     log info "Exiting on user cancel"
                     exit "${3}"
                 fi
             else
-                printf "\n"
+                echo
             fi
         ;;
         'critical')
-            printf "\E[41m${prefix} - Critical Error: ${2}\e[0m\n"
+            printf "\E[41m%s - Critical Error: %s\e[0m\n" "${prefix}" "${2}"
             exit "${3}"
         ;;
     esac
@@ -115,12 +118,12 @@ prep_rustup() {
 
 build_generic_client() {
     # Grab the SDK root
-    export $(androidsdk ndk-bundle | grep 'SDK_ROOT=') ANDROID_SDK_ROOT="${SDK_ROOT}"
+    export "$(androidsdk ndk-bundle | grep 'SDK_ROOT=')" ANDROID_SDK_ROOT="${SDK_ROOT}"
     # Add LLVM / Clang Android path
     toolchainRoot="${SDK_ROOT}/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64/bin/"
     export PATH="${PATH}:${toolchainRoot}"
 
-    log info 'Linking android "${SDK_VERSION}" toolchain to generic...'
+    log info "Linking android ${SDK_VERSION} toolchain to generic..."
     if ! [ -L "${toolchainRoot}/aarch64-linux-android-clang" ]; then
         ln -s "${toolchainRoot}/"{aarch64-linux-android30-clang,aarch64-linux-android-clang}
     fi
@@ -134,21 +137,16 @@ build_generic_client() {
     yes | androidsdk --licenses --sdk_root="${repoDir}/alvr/client/android/"
 
     log info 'Starting client build ...'
-    cd "${repoDir}"
-        if cargo xtask build-android-deps; then
-            if cargo xtask build-client --release; then
-                # This needs stable support, only nightlies get built right now
-                cp "${repoDir}/build/alvr_client_oculus_go/"* "../alvr_client_oculus_go${nightlyVer}.apk"
-                cp "${repoDir}/build/alvr_client_oculus_quest/"* "../alvr_client_oculus_quest${nightlyVer}.apk"
-            else
-                cd -
-                exit 2
-            fi
-        else
-            cd -
-            exit 2
+    # no subshell expansion warnings
+    # shellcheck disable=SC2091
+    $(
+        cd "${repoDir}" || exit
+        if cargo xtask build-android-deps && cargo xtask build-client --release; then
+            # This needs stable support, only nightlies get built right now
+            cp "${repoDir}/build/alvr_client_oculus_go/"* "../alvr_client_oculus_go${nightlyVer}.apk"
+            cp "${repoDir}/build/alvr_client_oculus_quest/"* "../alvr_client_oculus_quest${nightlyVer}.apk"
         fi
-    cd -
+    )
 }
 
 ##########
@@ -162,7 +160,8 @@ systemctl enable --now snapd
 
 snap install androidsdk
 SUDOCMDS
-    # This is a very basic check; ideally it should be checked individually in the heredoc above
+    # This is a very basic check; ideally this and others should be checked individually in the heredoc above
+    # shellcheck disable=SC2181
     if [ $? -eq 0 ]; then
         # Load any additional snapd binary locations
         . /etc/profile.d/snapd.sh
@@ -174,10 +173,10 @@ SUDOCMDS
 
 prep_fedora_server() {
     basePackages=(
-        dnf-utils
-        git
-        https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${VERSION_ID}.noarch.rpm
-        https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${VERSION_ID}.noarch.rpm
+        'dnf-utils'
+        'git'
+        "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${VERSION_ID}.noarch.rpm"
+        "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${VERSION_ID}.noarch.rpm"
     )
     # ONLY these need sudo
     sudo -s <<SUDOCMDS
@@ -187,22 +186,20 @@ SUDOCMDS
 }
 
 build_fedora_server() {
-    if [ $? -eq 0 ]; then
-        # Don't care if this fails
-        mkdir -p "${HOME}/rpmbuild/SOURCES" >/dev/null 2>&1
-        log info 'Building tarball ...'
-        if tar -czf "${HOME}/rpmbuild/SOURCES/$(spectool ${repoDir}/${specFile} | grep -oP 'v\d+\.\d+\..*\.tar\.gz')" -C "${repoDir}" .; then
-            log info 'Mangling spec file version and building RPMS ...'
-            if $nightly; then
-                sed "s/Release:.*/\0+$(date +%s)+${shortHash}/" "${repoDir}/${specFile}" > "${tmpDir}/tmp.spec"
-            else
-                cp "${repoDir}/${specFile}" "${tmpDir}/tmp.spec"
-            fi
-
-            rpmbuild -ba "${tmpDir}/tmp.spec"
+    # Don't care if this fails
+    mkdir -p "${HOME}/rpmbuild/SOURCES" >/dev/null 2>&1
+    log info 'Building tarball ...'
+    if tar -czf "${HOME}/rpmbuild/SOURCES/$(spectool "${repoDir}/${specFile}" | grep -oP 'v\d+\.\d+\..*\.tar\.gz')" -C "${repoDir}" .; then
+        log info 'Mangling spec file version and building RPMS ...'
+        if $nightly; then
+            sed "s/Release:.*/\0+$(date +%s)+${shortHash}/" "${repoDir}/${specFile}" > "${tmpDir}/tmp.spec"
         else
-            log critical 'Failed to build tarball!' 5
+            cp "${repoDir}/${specFile}" "${tmpDir}/tmp.spec"
         fi
+
+        rpmbuild -ba "${tmpDir}/tmp.spec"
+    else
+        log critical 'Failed to build tarball!' 5
     fi
 }
 
@@ -214,7 +211,7 @@ prep_ubuntu_client() {
 apt -y install default-jre python snapd
 snap install androidsdk
 SUDOCMDS
-    # This is a very basic check; ideally it should be checked individually in the heredoc above
+    # shellcheck disable=SC2181
     if [ $? -eq 0 ]; then
         prep_rustup
     else
@@ -231,7 +228,7 @@ prep_ubuntu_server() {
 apt -y install devscripts equivs snapd
 yes | mk-build-deps -ir "${tmpDir}/control"
 SUDOCMDS
-    # This is a very basic check; ideally it should be checked individually in the heredoc above
+    # shellcheck disable=SC2181
     if [ $? -eq 0 ]; then
         prep_rustup
     else
@@ -264,17 +261,17 @@ build_ubuntu_server() {
         'usr/libexec/alvr/'
     )
 
-    cd "${repoDir}"
+    # shellcheck disable=SC2091
+    $(
+        cd "${repoDir}" || exit
         # There's no vulkan-enabled ffmpeg afaik
         log info 'Building ALVR server ...'
         if cargo xtask build-server --release --bundle-ffmpeg; then
             log info 'ALVR server built successfully!'
         else
-            # cd here since we wont get past a critical error
-            cd -
             log critical 'Failed to build ALVR server!' 4
         fi
-    cd -
+    )
 
     log info 'Creating directories ...'
     for newDir in "${newDirs[@]}"; do
@@ -336,7 +333,7 @@ main() {
             elif [ "${2,,}" == '--build-only' ]; then
                 log critical 'Failed to build ALVR client!' 2
             # Prepare and check return code
-            elif prep_${ID}_client; then
+            elif prep_"${ID}"_client; then
                 # Exit successfully if we're only preparing
                 if [ "${2,,}" == '--prep-only' ]; then
                     exit 0
@@ -352,14 +349,14 @@ main() {
         ;;
         'server')
             log info "Preparing ${PRETTY_NAME} (${ID}) to build ALVR server..."
-            if [ "${2,,}" == '--build-only' ] && maybe_clone && build_${ID}_server; then
+            if [ "${2,,}" == '--build-only' ] && (maybe_clone || exit) && build_"${ID}"_server; then
                 log info "${PRETTY_NAME} (${ID}) package built successfully."
             elif [ "${2,,}" == '--build-only' ]; then
                 log critical "Failed to build ${PRETTY_NAME} (${ID}) package!" 4
-            elif prep_${ID}_server; then
+            elif prep_"${ID}"_server; then
                 if [ "${2,,}" == '--prep-only' ]; then
                     exit 0
-                elif maybe_clone && build_${ID}_server; then
+                elif maybe_clone && build_"${ID}"_server; then
                     log info "${PRETTY_NAME} (${ID}) package built successfully."
                 else
                     log critical "Failed to build ${PRETTY_NAME} (${ID}) package!" 4
