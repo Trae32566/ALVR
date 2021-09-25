@@ -65,6 +65,7 @@ log() {
         ;;
     esac
 }
+export log
 
 help_docs() {
     cat <<HELPME
