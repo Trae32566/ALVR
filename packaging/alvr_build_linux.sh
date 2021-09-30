@@ -23,6 +23,8 @@ specFile='packaging/rpm/alvr.spec'
 controlFile='packaging/deb/control'
 # Raw file provider
 rawContentProvider='https://raw.githubusercontent.com'
+# Android NDK version
+ndkVersion=30
 
 # Grab the directory git creates
 repoDir="$(dirname "$(realpath "${0}")")/$(basename "${repo}")"
@@ -123,12 +125,12 @@ build_generic_client() {
     toolchainRoot="${SDK_ROOT}/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64/bin/"
     export PATH="${PATH}:${toolchainRoot}"
 
-    log info "Linking android ${SDK_VERSION} toolchain to generic..."
+    log info "Linking Android ${ndkVersion} NDK toolchain to generic..."
     if ! [ -L "${toolchainRoot}/aarch64-linux-android-clang" ]; then
-        ln -s "${toolchainRoot}/"{aarch64-linux-android30-clang,aarch64-linux-android-clang}
+        ln -s "${toolchainRoot}/"{"aarch64-linux-android${ndkVersion}-clang",'aarch64-linux-android-clang'}
     fi
     if ! [ -L "${toolchainRoot}/aarch64-linux-android-clang++" ]; then
-        ln -s "${toolchainRoot}/"{aarch64-linux-android30-clang++,aarch64-linux-android-clang++}
+        ln -s "${toolchainRoot}/"{"aarch64-linux-android${ndkVersion}-clang++",'aarch64-linux-android-clang++'}
     fi
 
     # Make sure we agreed to licenses
