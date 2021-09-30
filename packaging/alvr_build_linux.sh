@@ -107,7 +107,7 @@ prep_rustup() {
     export PATH="${PATH}:/snap/bin:/var/lib/snapd/snap"
 
     # Install rustup if it does not exist
-    if ! command -v rustup >/dev/null 2>&1 && ! sudo snap install rustup --classic; then
+    if ! command -v rustup > /dev/null 2>&1 && ! sudo snap install rustup --classic; then
         return 7
     fi
     log info 'Installing rust nightly ...'
@@ -119,7 +119,13 @@ prep_rustup() {
 }
 
 build_generic_client() {
+    # Make sure we agreed to licenses
+    log info 'Accepting licenses ...'
+    yes | androidsdk --licenses > /dev/null 2>&1
+    yes | androidsdk --licenses --sdk_root="${repoDir}/alvr/client/android/" > /dev/null 2>&1
+
     # Grab the SDK root
+    log info 'Installing Android NDK bundle ...'
     export "$(androidsdk ndk-bundle 2>&1 | grep 'SDK_ROOT=')"
     export ANDROID_SDK_ROOT="${SDK_ROOT}"
     log info "Using Android SDK: ${ANDROID_SDK_ROOT}"
@@ -136,21 +142,17 @@ build_generic_client() {
         ln -s "${toolchainRoot}/"{"aarch64-linux-android${ndkVersion}-clang++",'aarch64-linux-android-clang++'}
     fi
 
-    # Make sure we agreed to licenses
-    log info 'Accepting licenses ...'
-    yes | androidsdk --licenses >/dev/null 2>&1
-    yes | androidsdk --licenses --sdk_root="${repoDir}/alvr/client/android/" >/dev/null 2>&1
 
     log info 'Starting client build ...'
     # no subshell expansion warnings
-    cd "${repoDir}" 2>&1 || return 2
+    cd "${repoDir}" > /dev/null || return 2
     if cargo xtask build-android-deps && cargo xtask build-client --release; then
         # This needs stable support, only nightlies get built right now
         cp "${repoDir}/build/alvr_client_oculus_go/"* "../alvr_client_oculus_go${nightlyVer}.apk"
         cp "${repoDir}/build/alvr_client_oculus_quest/"* "../alvr_client_oculus_quest${nightlyVer}.apk"
-        cd - 2>&1 || return 2
+        cd - > /dev/null || return 2
     else
-        cd - 2>&1 && return 2
+        cd - > /dev/null && return 2
     fi
 }
 
@@ -192,7 +194,7 @@ SUDOCMDS
 
 build_fedora_server() {
     # Don't care if this fails
-    mkdir -p "${HOME}/rpmbuild/SOURCES" >/dev/null 2>&1
+    mkdir -p "${HOME}/rpmbuild/SOURCES" > /dev/null 2>&1
     log info 'Building tarball ...'
     if tar -czf "${HOME}/rpmbuild/SOURCES/$(spectool "${repoDir}/${specFile}" | grep -oP 'v\d+\.\d+\..*\.tar\.gz')" -C "${repoDir}" .; then
         log info 'Mangling spec file version and building RPMS ...'
@@ -266,13 +268,13 @@ build_ubuntu_server() {
         'usr/libexec/alvr/'
     )
 
-    cd "${repoDir}" 2>&1 || return 4
+    cd "${repoDir}" > /dev/null || return 4
     # There's no vulkan-enabled ffmpeg afaik
     log info 'Building ALVR server ...'
     if cargo xtask build-server --release --bundle-ffmpeg; then
-        cd - 2>&1 || return 4
+        cd - > /dev/null || return 4
     else
-        cd - 2>&1 && return 4
+        cd - > /dev/null && return 4
     fi
 
     log info 'Creating directories ...'
