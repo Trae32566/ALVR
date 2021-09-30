@@ -108,11 +108,11 @@ prep_rustup() {
 
     # Install rustup if it does not exist
     if ! command -v rustup >/dev/null 2>&1 && ! sudo snap install rustup --classic; then
-        exit 7
+        return 7
     fi
     log info 'Installing rust nightly ...'
     if ! rustup install nightly; then
-        exit 7
+        return 7
     fi
     # This doesn't necessarily need to succeed, but ideally it will
     rustup default nightly
@@ -143,15 +143,15 @@ build_generic_client() {
 
     log info 'Starting client build ...'
     # no subshell expansion warnings
-    # shellcheck disable=SC2091
-    $(
-        cd "${repoDir}" || exit
-        if cargo xtask build-android-deps && cargo xtask build-client --release; then
-            # This needs stable support, only nightlies get built right now
-            cp "${repoDir}/build/alvr_client_oculus_go/"* "../alvr_client_oculus_go${nightlyVer}.apk"
-            cp "${repoDir}/build/alvr_client_oculus_quest/"* "../alvr_client_oculus_quest${nightlyVer}.apk"
-        fi
-    )
+    cd "${repoDir}" 2>&1 || return 2
+    if cargo xtask build-android-deps && cargo xtask build-client --release; then
+        # This needs stable support, only nightlies get built right now
+        cp "${repoDir}/build/alvr_client_oculus_go/"* "../alvr_client_oculus_go${nightlyVer}.apk"
+        cp "${repoDir}/build/alvr_client_oculus_quest/"* "../alvr_client_oculus_quest${nightlyVer}.apk"
+        cd - 2>&1 || return 2
+    else
+        cd - 2>&1 && return 2
+    fi
 }
 
 ##########
@@ -172,7 +172,7 @@ SUDOCMDS
         . /etc/profile.d/snapd.sh
         prep_rustup
     else
-        exit 1
+        return 1
     fi
 }
 
@@ -220,7 +220,7 @@ SUDOCMDS
     if [ $? -eq 0 ]; then
         prep_rustup
     else
-        exit 1
+        return 1
     fi
 }
 
@@ -237,7 +237,7 @@ SUDOCMDS
     if [ $? -eq 0 ]; then
         prep_rustup
     else
-        exit 1
+        return 1
     fi
 }
 
@@ -266,17 +266,14 @@ build_ubuntu_server() {
         'usr/libexec/alvr/'
     )
 
-    # shellcheck disable=SC2091
-    $(
-        cd "${repoDir}" || exit
-        # There's no vulkan-enabled ffmpeg afaik
-        log info 'Building ALVR server ...'
-        if cargo xtask build-server --release --bundle-ffmpeg; then
-            log info 'ALVR server built successfully!'
-        else
-            log critical 'Failed to build ALVR server!' 4
-        fi
-    )
+    cd "${repoDir}" || return 4
+    # There's no vulkan-enabled ffmpeg afaik
+    log info 'Building ALVR server ...'
+    if cargo xtask build-server --release --bundle-ffmpeg; then
+        cd - 2>&1 || return 4
+    else
+        cd - 2>&1 && return 4
+    fi
 
     log info 'Creating directories ...'
     for newDir in "${newDirs[@]}"; do
