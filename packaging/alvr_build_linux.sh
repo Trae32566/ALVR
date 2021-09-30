@@ -122,7 +122,6 @@ build_generic_client() {
     # Make sure we agreed to licenses
     log info 'Accepting licenses ...'
     yes | androidsdk --licenses > /dev/null 2>&1
-    yes | androidsdk --licenses --sdk_root="${repoDir}/alvr/client/android/" > /dev/null 2>&1
 
     # Grab the SDK root
     log info 'Installing Android NDK bundle ...'
