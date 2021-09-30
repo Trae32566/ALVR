@@ -106,7 +106,7 @@ prep_rustup() {
     export PATH="${PATH}:/snap/bin:/var/lib/snapd/snap"
 
     # Install rustup if it does not exist
-    if ! command -v rustup && ! sudo snap install rustup --classic; then
+    if ! command -v rustup >/dev/null 2>&1 && ! sudo snap install rustup --classic; then
         exit 7
     fi
     log info 'Installing rust nightly ...'
@@ -134,8 +134,8 @@ build_generic_client() {
 
     # Make sure we agreed to licenses
     log info 'Accepting licenses ...'
-    yes | androidsdk --licenses
-    yes | androidsdk --licenses --sdk_root="${repoDir}/alvr/client/android/"
+    yes | androidsdk --licenses >/dev/null 2>&1
+    yes | androidsdk --licenses --sdk_root="${repoDir}/alvr/client/android/" >/dev/null 2>&1
 
     log info 'Starting client build ...'
     # no subshell expansion warnings
