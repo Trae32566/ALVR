@@ -120,7 +120,10 @@ prep_rustup() {
 
 build_generic_client() {
     # Grab the SDK root
-    export "$(androidsdk ndk-bundle | grep 'SDK_ROOT=')" ANDROID_SDK_ROOT="${SDK_ROOT}"
+    export "$(androidsdk ndk-bundle 2>&1 | grep 'SDK_ROOT=')"
+    export ANDROID_SDK_ROOT="${SDK_ROOT}"
+    log info "Using Android SDK: ${ANDROID_SDK_ROOT}"
+
     # Add LLVM / Clang Android path
     toolchainRoot="${SDK_ROOT}/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64/bin/"
     export PATH="${PATH}:${toolchainRoot}"
