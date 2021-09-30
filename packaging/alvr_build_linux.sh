@@ -266,7 +266,7 @@ build_ubuntu_server() {
         'usr/libexec/alvr/'
     )
 
-    cd "${repoDir}" || return 4
+    cd "${repoDir}" 2>&1 || return 4
     # There's no vulkan-enabled ffmpeg afaik
     log info 'Building ALVR server ...'
     if cargo xtask build-server --release --bundle-ffmpeg; then
