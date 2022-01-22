@@ -15,9 +15,9 @@
 # shellcheck disable=SC1091
 
 # GitHub repo
-repo='alvr-org/ALVR'
+repo='Trae32566/ALVR'
 # Git branch
-branch='master'
+branch='DEBFIX-1'
 # RPM spec file
 specFile='packaging/rpm/alvr.spec'
 # deb control file
