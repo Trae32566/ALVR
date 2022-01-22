@@ -8,6 +8,7 @@
 # 5 - ALVR server tarball creation failed
 # 6 - Unable to download Deb control file
 # 7 - Unable to install / upgrade rustup
+# 8 - Unable to create deb
 # 99 - Script run as root
 #
 # Disable warnings about importing snapd
@@ -318,9 +319,12 @@ build_ubuntu_server() {
     done
 
     log info 'Generating package ...'
-    dpkg-deb --build --root-owner-group "${debTmpDir}"
-    # dpkg-deb puts the resulting file in the top level directory
-    cp "${tmpDir}/alvr_${debVer}.deb" "${HOME}"
+    if dpkg-deb --build --root-owner-group "${debTmpDir}"; then
+        # dpkg-deb puts the resulting file in the top level directory
+        cp "${tmpDir}/alvr_${debVer}.deb" "${HOME}"
+    else
+        log critical 'Unable to create package!' 8
+    fi
 }
 
 # Debian
