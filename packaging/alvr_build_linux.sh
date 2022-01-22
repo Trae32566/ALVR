@@ -273,6 +273,9 @@ build_ubuntu_server() {
         'usr/libexec/alvr/'
     )
 
+    # Add debian Package config
+    export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${repoDir}/packaging/deb/cuda.pc"
+
     cd "${repoDir}" > /dev/null || return 4
     # There's no vulkan-enabled ffmpeg afaik
     log info 'Building ALVR server ...'
