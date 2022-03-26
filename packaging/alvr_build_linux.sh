@@ -184,8 +184,8 @@ main() {
             fi
         ;;
         'clobber')
-            log info 'Clobbering build environment ...'
-            rm -rf "${repoDir}/"{'build','deps','target'}
+            log info 'Clobbering build environment(s) ...'
+            rm -rf "${repoDir}/"{'build','deps','target'} '/tmp/alvr_'*
         ;;
         'all')
             ${0} server "${@:2}"
@@ -196,9 +196,6 @@ main() {
             help_docs
         ;;
     esac
-
-    # If there's a failure this will not run by design so we can debug
-    rm -rf "${tmpDir}"
 }
 
 main "${@}"
